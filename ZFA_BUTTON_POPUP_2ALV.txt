@@ -1,0 +1,39 @@
+*&---------------------------------------------------------------------*
+*& Report  ZFA_BUTTON_POPUP_2ALV
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+
+REPORT zfa_button_popup_2alv.
+
+
+
+INCLUDE zfa_button_popup_2alv_top.
+INCLUDE zfa_button_popup_2alv_f01.
+
+AT SELECTION-SCREEN.
+
+
+AT SELECTION-SCREEN OUTPUT.
+*  PERFORM modify_screen.
+
+*AT SELECTION-SCREEN ON VALUE-REQUEST FOR s_ad.
+*   PERFORM CHANGE_NAME.
+
+
+
+START-OF-SELECTION.
+  gv_repid = sy-repid.
+
+  PERFORM verilerii_sec CHANGING gt_spfli.
+
+  PERFORM fcat_layout_hazirla CHANGING gt_fcat
+                                       gs_layout.
+  PERFORM alv_goster USING gt_fcat
+                           gs_layout
+                           gt_spfli.
+
+
+END-OF-SELECTION.

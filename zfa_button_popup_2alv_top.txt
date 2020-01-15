@@ -1,0 +1,14 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZFA_BUTTON_POPUP_2ALV_TOP
+*&---------------------------------------------------------------------*
+
+TYPE-POOLS slis.
+TYPE-POOLS icon.
+
+DATA : gt_spfli   TYPE zfa_t_spfli,
+       gt_spfli2  TYPE zfa_t_spfli,
+       gt_sflight TYPE TABLE OF sflight.
+
+DATA : gt_fcat   TYPE slis_t_fieldcat_alv,
+       gs_layout TYPE slis_layout_alv,
+       gv_repid  TYPE sy-repid.

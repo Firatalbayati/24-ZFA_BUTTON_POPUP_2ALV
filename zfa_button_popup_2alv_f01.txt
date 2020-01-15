@@ -1,0 +1,180 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZFA_BUTTON_POPUP_2ALV_F01
+*&---------------------------------------------------------------------*
+
+FORM verilerii_sec  CHANGING ct_spfli TYPE zfa_t_spfli.
+
+  SELECT * FROM spfli INTO CORRESPONDING FIELDS OF TABLE ct_spfli .
+
+ENDFORM.                    " VERILERII_SEC
+
+
+FORM fcat_layout_hazirla  CHANGING ct_fcat   TYPE slis_t_fieldcat_alv
+                                   cs_layout TYPE slis_layout_alv.
+
+  FIELD-SYMBOLS <fs_fcat> LIKE LINE OF ct_fcat.
+
+  CALL FUNCTION 'REUSE_ALV_FIELDCATALOG_MERGE'
+    EXPORTING
+      i_structure_name = 'ZFA_S_SPFLI_ALV'
+    CHANGING
+      ct_fieldcat      = ct_fcat
+*  EXCEPTIONS
+*     INCONSISTENT_INTERFACE       = 1
+*     PROGRAM_ERROR    = 2
+*     OTHERS           = 3
+    .
+  IF sy-subrc <> 0.
+* Implement suitable error handling here
+  ENDIF.
+
+
+  LOOP AT ct_fcat ASSIGNING <fs_fcat>.
+    IF <fs_fcat>-fieldname = 'FLTIME'.
+      <fs_fcat>-emphasize = abap_true.
+    ENDIF.
+
+    IF <fs_fcat>-fieldname = 'CARRID'.
+      <fs_fcat>-hotspot = abap_true.
+    ENDIF.
+
+    IF <fs_fcat>-fieldname = 'ICON'.
+      <fs_fcat>-icon = abap_true.
+    ENDIF.
+  ENDLOOP.
+
+  cs_layout-zebra = abap_true.
+  cs_layout-colwidth_optimize = abap_true.
+ENDFORM.                    " FCAT_LAYOUT_HAZIRLA
+
+
+FORM alv_goster  USING    it_fcat LIKE gt_fcat
+                          is_layout LIKE gs_layout
+                          it_spfli LIKE gt_spfli.
+
+  FIELD-SYMBOLS <ls_spfli> LIKE LINE OF gt_spfli.
+  LOOP AT gt_spfli ASSIGNING <ls_spfli>.
+    IF <ls_spfli>-fltime <= 200.
+      <ls_spfli>-icon = icon_red_light.
+    ELSEIF <ls_spfli>-fltime > 200 AND
+           <ls_spfli>-fltime <= 600.
+      <ls_spfli>-icon = icon_yellow_light.
+    ELSE.
+      <ls_spfli>-icon = icon_green_light.
+    ENDIF.
+  ENDLOOP.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      i_callback_program       = gv_repid
+      i_callback_pf_status_set = 'SET_MENU'
+      i_callback_user_command  = 'USER_COMMAND'
+      i_callback_top_of_page   = 'TOP_OF_PAGE_ISLE'
+      i_grid_title             = 'FIRAT ALBAYATI'
+      is_layout                = is_layout
+      it_fieldcat              = it_fcat
+    TABLES
+      t_outtab                 = it_spfli
+* EXCEPTIONS
+*     PROGRAM_ERROR            = 1
+*     OTHERS                   = 2
+    .
+  IF sy-subrc <> 0.
+* Implement suitable error handling here
+  ENDIF.
+
+ENDFORM.                    " ALV_GOSTER
+
+FORM top_of_page_isle.
+  DATA : lt_liste TYPE slis_t_listheader,
+         ls_liste LIKE LINE OF lt_liste.
+
+  ls_liste-typ = 'H'.
+  ls_liste-key = 'BAŞLIK'.
+  CONCATENATE sy-datum sy-uname 'spfli listesi' INTO ls_liste-info
+            SEPARATED BY space.
+  APPEND ls_liste TO lt_liste.
+
+  CALL FUNCTION 'REUSE_ALV_COMMENTARY_WRITE'
+    EXPORTING
+      it_list_commentary = lt_liste
+      i_logo             = 'SAPLOGO_DEMO1'.
+
+ENDFORM.
+
+FORM set_menu USING ct_extab TYPE slis_t_extab.
+  CLEAR ct_extab.
+  APPEND '%SL' TO ct_extab.  " bu buttonu kaldırdık
+  APPEND '&UMC' TO ct_extab. " bu buttonu kaldırdık
+
+  SET PF-STATUS 'STANDARD' EXCLUDING ct_extab.
+ENDFORM.
+
+FORM user_command USING ucomm LIKE sy-ucomm
+                        fields1 TYPE slis_selfield.
+
+  DATA: ls_spfli LIKE LINE OF gt_spfli.
+
+  CASE ucomm.
+    WHEN '&DETAY'.
+      PERFORM detay_goster USING fields1-tabindex gt_spfli.
+
+      "çift tıklandınığında açılan popup
+    WHEN '&IC1'.
+      READ TABLE gt_spfli INTO ls_spfli INDEX fields1-tabindex. "fields1 system tarafından doldurulan bir stracture
+      "hangi satır ise onun değerini döner
+      CALL FUNCTION 'POPUP_TO_INFORM'
+        EXPORTING
+          titel = 'FIRAT ALBAYATI'
+          txt1  = ls_spfli-carrid
+          txt2  = ls_spfli-connid
+*         TXT3  = ' '
+*         TXT4  = ' '
+        .
+  ENDCASE.
+
+ENDFORM.
+
+FORM detay_goster USING iv_index TYPE i
+                        it_spfli LIKE gt_spfli.
+
+  DATA ls_spfli LIKE LINE OF it_spfli.
+
+  READ TABLE it_spfli INTO ls_spfli INDEX iv_index. "internal tablodan tek kayit okumak için read table
+  IF sy-subrc IS INITIAL.
+    SELECT * FROM sflight INTO TABLE gt_sflight
+    WHERE ( carrid EQ ls_spfli-carrid )
+      AND ( connid EQ ls_spfli-connid ).
+
+    IF sy-subrc IS INITIAL.
+      PERFORM sflight_alv_goster USING gt_sflight.
+    ELSE.
+      MESSAGE 'SECILEN SATIR ICIN BILGILER YOUKTUR' TYPE 'I'.
+    ENDIF.
+  ELSE.
+    MESSAGE 'BIR SATIR SECINIZ' TYPE 'I'.
+  ENDIF.
+ENDFORM.
+
+"ikinci alv
+
+FORM sflight_alv_goster USING it_sflight LIKE gt_sflight.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      i_structure_name      = 'SFLIGHT'
+      i_screen_start_column = 10
+      i_screen_start_line   = 10
+      i_screen_end_column   = 150
+      i_screen_end_line     = 50
+    TABLES
+      t_outtab              = it_sflight
+* EXCEPTIONS
+*     PROGRAM_ERROR         = 1
+*     OTHERS                = 2
+    .
+  IF sy-subrc <> 0.
+* Implement suitable error handling here
+  ENDIF.
+
+ENDFORM.
